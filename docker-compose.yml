@@ -1,0 +1,19 @@
+services:
+  backend:
+    build: ./backend
+    environment:
+      # "snapshot" (default) reads backend/data; "live" fetches from Elexon.
+      DATA_SOURCE: ${DATA_SOURCE:-snapshot}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "${PORT:-3000}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
