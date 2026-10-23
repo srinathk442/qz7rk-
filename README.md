@@ -7,7 +7,7 @@ A web app for a UK energy supplier's day-ahead trading team. It answers two ques
 
 Data comes from the Elexon BMRS API: actual generation from [FUELHH](https://bmrs.elexon.co.uk/api-documentation/endpoint/datasets/FUELHH/stream) (`fuelType = WIND`) and forecasts from [WINDFOR](https://bmrs.elexon.co.uk/api-documentation/endpoint/datasets/WINDFOR/stream).
 
-**Live app:** _link added after deployment_
+**Live app:** https://wind-forecast-monitor-mdctxpfvb.vercel.app
 
 ## Key findings (January 2026)
 
