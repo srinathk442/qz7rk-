@@ -106,9 +106,9 @@ Interactive docs at `/docs` when the backend is running.
 │   │                             ErrorHistogram, DecisionView, legend
 │   ├── nginx.conf                Serves the build, proxies /api to the backend
 │   └── Dockerfile                Multi-stage: Node build → nginx
-├── api/index.py                  Vercel serverless entry point (wraps backend/app)
-├── vercel.json                   Vercel build, function and /api routing config
-├── requirements.txt              Python deps for Vercel (points to backend/)
+├── api/index.py                  Vercel entry point: backend API + built frontend in one app
+├── vercel.json                   Vercel build command and function bundle config
+├── pyproject.toml                Python deps and entrypoint for Vercel
 ├── docker-compose.yml            Runs backend + frontend together
 └── README.md
 ```

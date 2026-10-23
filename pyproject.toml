@@ -1,0 +1,13 @@
+# Vercel deployment only. Runtime dependencies mirror backend/requirements.txt
+# (uvicorn is not needed: Vercel provides the server).
+[project]
+name = "wind-forecast-monitor"
+version = "1.0.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi==0.115.6",
+    "httpx==0.28.1",
+]
+
+[tool.vercel]
+entrypoint = "api.index:app"

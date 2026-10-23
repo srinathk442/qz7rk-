@@ -4,7 +4,6 @@ from functools import lru_cache
 
 import httpx
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.middleware.cors import CORSMiddleware
 
 from app.elexon import PERIOD_END, PERIOD_START, load_data
 from app.forecasts import SeriesPoint, build_series, latest_run
@@ -13,14 +12,6 @@ from app.metrics import ErrorMetrics, compute_metrics
 MAX_HORIZON_HOURS = 48
 
 app = FastAPI(title="Wind Forecast Monitor API")
-
-# The React dev server runs on a different port, so the browser needs CORS permission.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["GET"],
-    allow_headers=["*"],
-)
 
 
 @dataclass(frozen=True)
