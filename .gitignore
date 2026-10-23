@@ -12,4 +12,6 @@ dist/
 # Misc
 .env
 .vercel/
+# Vercel build output (frontend is built into public/ at deploy time)
+/public/
 .DS_Store

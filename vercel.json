@@ -1,10 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "cd frontend && npm ci && npm run build",
+  "buildCommand": "cd frontend && npm ci && npm run build -- --outDir ../public --emptyOutDir",
   "functions": {
     "api/index.py": {
-      "includeFiles": "{backend/app,backend/data,frontend/dist}/**",
-      "excludeFiles": "{frontend/node_modules,frontend/src,backend/tests}/**"
+      "includeFiles": "{backend/app/**,backend/data/**,public/index.html}",
+      "excludeFiles": "{frontend,backend/tests}/**"
     }
   }
 }
