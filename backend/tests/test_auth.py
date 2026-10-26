@@ -4,20 +4,19 @@ import jwt
 import pytest
 
 from app import auth
-from tests.conftest import register
+from tests.conftest import login, register
 
 
 def bearer(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
-def test_register_returns_token_for_new_user(anon_client):
-    body = register(anon_client, email="  Trader@Example.com ")
+def test_register_creates_user_without_logging_in(anon_client):
+    user = register(anon_client, email="  Trader@Example.com ")
 
-    assert body["token_type"] == "bearer"
-    assert body["user"]["email"] == "trader@example.com"
-    me = anon_client.get("/api/auth/me", headers=bearer(body["access_token"]))
-    assert me.json() == body["user"]
+    assert user == {"id": 1, "email": "trader@example.com"}
+    me = anon_client.get("/api/auth/me", headers=bearer(login(anon_client)))
+    assert me.json() == user
 
 
 def test_register_rejects_duplicate_email_case_insensitively(anon_client):
@@ -53,6 +52,7 @@ def test_login_with_correct_password(anon_client):
     res = anon_client.post("/api/auth/login", json={"email": "Trader@example.com", "password": "correct-horse"})
 
     assert res.status_code == 200
+    assert res.json()["token_type"] == "bearer"
     assert anon_client.get("/api/auth/me", headers=bearer(res.json()["access_token"])).status_code == 200
 
 

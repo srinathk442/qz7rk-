@@ -30,3 +30,9 @@ def register(client: TestClient, email: str = "trader@example.com", password: st
     res = client.post("/api/auth/register", json={"email": email, "password": password})
     assert res.status_code == 201, res.text
     return res.json()
+
+
+def login(client: TestClient, email: str = "trader@example.com", password: str = "correct-horse") -> str:
+    res = client.post("/api/auth/login", json={"email": email, "password": password})
+    assert res.status_code == 200, res.text
+    return res.json()["access_token"]

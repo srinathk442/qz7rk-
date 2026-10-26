@@ -29,7 +29,7 @@ Data comes from the Elexon BMRS API: actual generation from [FUELHH](https://bmr
 
 ## Authentication
 
-- `POST /api/auth/register` and `POST /api/auth/login` return a signed JWT (HS256), which the frontend keeps in `localStorage` and sends as `Authorization: Bearer …`. The data endpoints return 401 without a valid token, and the frontend then returns to the login page.
+- `POST /api/auth/register` creates the account; the user then logs in. `POST /api/auth/login` returns a signed JWT (HS256), which the frontend keeps in `localStorage` and sends as `Authorization: Bearer …`. The data endpoints return 401 without a valid token, and the frontend then returns to the login page.
 - Passwords are hashed with scrypt (Python standard library) and a per-user salt.
 - Tokens are stateless: logging out deletes the token in the browser, and a copied token stays valid until it expires (`JWT_TTL_HOURS`, default 12).
 
@@ -89,7 +89,7 @@ By default the backend reads a committed snapshot of January 2026 (`backend/data
 
 | Endpoint | Purpose |
 |---|---|
-| `POST /api/auth/register` | Create an account (`{email, password}`, password ≥ 8 chars); returns a token |
+| `POST /api/auth/register` | Create an account (`{email, password}`, password ≥ 8 chars); then log in |
 | `POST /api/auth/login` | Log in (`{email, password}`); returns a token |
 | `GET /api/auth/me` 🔒 | The logged-in user |
 | `GET /api/analysis?horizon=24&start=…&end=…` 🔒 | Actual vs horizon-selected forecast series, error metrics, coverage |

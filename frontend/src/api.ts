@@ -73,7 +73,7 @@ export async function errorMessage(res: Response): Promise<string> {
   return `Request failed (${res.status})`
 }
 
-async function postCredentials(url: string, email: string, password: string): Promise<TokenResponse> {
+async function postCredentials<T>(url: string, email: string, password: string): Promise<T> {
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -83,5 +83,9 @@ async function postCredentials(url: string, email: string, password: string): Pr
   return res.json()
 }
 
-export const logIn = (email: string, password: string) => postCredentials('/api/auth/login', email, password)
-export const register = (email: string, password: string) => postCredentials('/api/auth/register', email, password)
+export const logIn = (email: string, password: string) =>
+  postCredentials<TokenResponse>('/api/auth/login', email, password)
+
+/** Creates the account only; the user then logs in. */
+export const register = (email: string, password: string) =>
+  postCredentials<AuthUser>('/api/auth/register', email, password)

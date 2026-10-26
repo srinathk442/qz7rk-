@@ -4,7 +4,7 @@ import pytest
 
 from app import main
 from app.elexon import Actual, Forecast
-from tests.conftest import register
+from tests.conftest import login, register
 
 T = datetime(2026, 1, 10, 12, tzinfo=timezone.utc)
 H = timedelta(hours=1)
@@ -30,8 +30,8 @@ def data(monkeypatch):
 @pytest.fixture
 def client(anon_client, data):
     """Logged-in API client."""
-    token = register(anon_client)["access_token"]
-    anon_client.headers["Authorization"] = f"Bearer {token}"
+    register(anon_client)
+    anon_client.headers["Authorization"] = f"Bearer {login(anon_client)}"
     return anon_client
 
 

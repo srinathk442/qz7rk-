@@ -142,8 +142,9 @@ def current_user(
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
-def register(body: RegisterRequest, db: Session = Depends(get_db)) -> Token:
+# Registering does not log the user in: they then log in with the new credentials.
+@router.post("/register", response_model=UserInfo, status_code=status.HTTP_201_CREATED)
+def register(body: RegisterRequest, db: Session = Depends(get_db)) -> UserInfo:
     user = User(email=body.email, password_hash=hash_password(body.password))
     db.add(user)
     try:
@@ -151,7 +152,7 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)) -> Token:
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, detail="An account with this email already exists") from exc
-    return _token_response(user)
+    return UserInfo(id=user.id, email=user.email)
 
 
 @router.post("/login", response_model=Token)

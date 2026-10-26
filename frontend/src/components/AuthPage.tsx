@@ -12,6 +12,7 @@ export function AuthPage() {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const isRegister = mode === 'register'
 
@@ -23,9 +24,18 @@ export function AuthPage() {
     }
     setSubmitting(true)
     setError(null)
+    setNotice(null)
     try {
-      const res = await (isRegister ? register : logIn)(email, password)
-      startSession({ token: res.access_token, user: res.user })
+      if (isRegister) {
+        // Registering does not log in: go to the login form with the email filled in.
+        await register(email, password)
+        switchMode('login')
+        setNotice('Account created. Log in to continue.')
+        setSubmitting(false)
+      } else {
+        const res = await logIn(email, password)
+        startSession({ token: res.access_token, user: res.user })
+      }
     } catch (err) {
       setError((err as Error).message)
       setSubmitting(false)
@@ -35,6 +45,7 @@ export function AuthPage() {
   function switchMode(next: Mode) {
     setMode(next)
     setError(null)
+    setNotice(null)
     setPassword('')
     setConfirm('')
   }
@@ -46,6 +57,11 @@ export function AuthPage() {
         <p className="subtitle">GB wind forecast accuracy for day-ahead trading.</p>
 
         <h2 className="auth-title">{isRegister ? 'Create an account' : 'Log in'}</h2>
+        {notice && (
+          <p className="notice" role="status">
+            {notice}
+          </p>
+        )}
         <form className="auth-form" onSubmit={handleSubmit}>
           <label className="field">
             <span className="control-label">Email</span>
