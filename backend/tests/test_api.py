@@ -1,10 +1,10 @@
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from fastapi.testclient import TestClient
 
 from app import main
 from app.elexon import Actual, Forecast
+from tests.conftest import register
 
 T = datetime(2026, 1, 10, 12, tzinfo=timezone.utc)
 H = timedelta(hours=1)
@@ -19,12 +19,31 @@ FORECASTS = (
 
 
 @pytest.fixture
-def client(monkeypatch):
-    """API client backed by fixed in-memory data instead of Elexon."""
+def data(monkeypatch):
+    """Serve fixed in-memory data instead of Elexon."""
     monkeypatch.setattr(main, "load_data", lambda: (ACTUALS, FORECASTS))
     main._series.cache_clear()
-    yield TestClient(main.app)
+    yield
     main._series.cache_clear()
+
+
+@pytest.fixture
+def client(anon_client, data):
+    """Logged-in API client."""
+    token = register(anon_client)["access_token"]
+    anon_client.headers["Authorization"] = f"Bearer {token}"
+    return anon_client
+
+
+@pytest.mark.parametrize(
+    "path", ["/api/analysis", "/api/horizon-curve", "/api/forecast-run?as_of=2026-01-10T07:00:00Z"]
+)
+def test_data_endpoints_require_login(anon_client, data, path):
+    assert anon_client.get(path).status_code == 401
+
+
+def test_health_does_not_require_login(anon_client):
+    assert anon_client.get("/api/health").status_code == 200
 
 
 def test_analysis_uses_forecasts_for_requested_horizon(client):

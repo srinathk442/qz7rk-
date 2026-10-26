@@ -1,7 +1,8 @@
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    DATABASE_URL=sqlite:////srv/db/users.db
 
 WORKDIR /srv
 
@@ -12,7 +13,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 COPY data ./data
 
-RUN useradd --create-home appuser
+# /srv/db holds the user accounts database (a volume in docker-compose.yml).
+RUN useradd --create-home appuser && mkdir /srv/db && chown appuser /srv/db
 USER appuser
 
 EXPOSE 8000

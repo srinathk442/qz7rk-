@@ -1,5 +1,6 @@
 # Vercel deployment only. Runtime dependencies mirror backend/requirements.txt
-# (uvicorn is not needed: Vercel provides the server).
+# (uvicorn is not needed: Vercel provides the server), plus the Postgres driver
+# for DATABASE_URL, since Vercel's filesystem cannot hold the user database.
 [project]
 name = "wind-forecast-monitor"
 version = "1.0.0"
@@ -7,6 +8,9 @@ requires-python = ">=3.12"
 dependencies = [
     "fastapi==0.115.6",
     "httpx==0.28.1",
+    "SQLAlchemy==2.0.36",
+    "PyJWT==2.10.1",
+    "psycopg[binary]==3.2.3",
 ]
 
 [tool.vercel]

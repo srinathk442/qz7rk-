@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { errorMessage } from './api'
+import { useAuth } from './auth'
 
 export interface FetchState<T> {
   data: T | null
@@ -7,23 +9,24 @@ export interface FetchState<T> {
 }
 
 /**
- * Fetch JSON from `url`, re-fetching when it changes.
+ * Fetch JSON from `url` as the logged-in user, re-fetching when it changes.
  * The previous data is kept while a new request is in flight, so charts
- * can dim instead of flashing empty.
+ * can dim instead of flashing empty. A 401 (e.g. an expired token) ends
+ * the session, which sends the user back to the login page.
  */
 export function useFetch<T>(url: string): FetchState<T> {
+  const { session, endSession } = useAuth()
+  const token = session?.token
   const [state, setState] = useState<FetchState<T>>({ data: null, error: null, loading: true })
 
   useEffect(() => {
     const controller = new AbortController()
     setState((s) => ({ ...s, loading: true, error: null }))
 
-    fetch(url, { signal: controller.signal })
+    fetch(url, { signal: controller.signal, headers: token ? { Authorization: `Bearer ${token}` } : undefined })
       .then(async (res) => {
-        if (!res.ok) {
-          const body = await res.json().catch(() => null)
-          throw new Error(body?.detail ?? `Request failed (${res.status})`)
-        }
+        if (res.status === 401) endSession()
+        if (!res.ok) throw new Error(await errorMessage(res))
         return res.json() as Promise<T>
       })
       .then((data) => setState({ data, error: null, loading: false }))
@@ -32,7 +35,7 @@ export function useFetch<T>(url: string): FetchState<T> {
       })
 
     return () => controller.abort()
-  }, [url])
+  }, [url, token, endSession])
 
   return state
 }

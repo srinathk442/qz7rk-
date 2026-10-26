@@ -3,15 +3,20 @@ from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 
 import httpx
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query
 
+from app import auth
 from app.elexon import PERIOD_END, PERIOD_START, load_data
 from app.forecasts import SeriesPoint, build_series, latest_run
 from app.metrics import ErrorMetrics, compute_metrics
 
 MAX_HORIZON_HOURS = 48
 
+# Data endpoints are for logged-in users only.
+AUTHENTICATED = [Depends(auth.current_user)]
+
 app = FastAPI(title="Wind Forecast Monitor API")
+app.include_router(auth.router)
 
 
 @dataclass(frozen=True)
@@ -72,7 +77,7 @@ def health() -> dict:
     return {"status": "ok"}
 
 
-@app.get("/api/analysis", response_model=Analysis)
+@app.get("/api/analysis", response_model=Analysis, dependencies=AUTHENTICATED)
 def analysis(
     horizon: float = Query(
         4, ge=0, le=MAX_HORIZON_HOURS, multiple_of=0.5, description="Forecast horizon in hours"
@@ -100,7 +105,7 @@ def analysis(
     )
 
 
-@app.get("/api/horizon-curve", response_model=list[HorizonMetrics])
+@app.get("/api/horizon-curve", response_model=list[HorizonMetrics], dependencies=AUTHENTICATED)
 def horizon_curve() -> list[HorizonMetrics]:
     return [
         HorizonMetrics(horizon_hours=h, metrics=compute_metrics(_series(h)))
@@ -108,7 +113,7 @@ def horizon_curve() -> list[HorizonMetrics]:
     ]
 
 
-@app.get("/api/forecast-run", response_model=ForecastRun)
+@app.get("/api/forecast-run", response_model=ForecastRun, dependencies=AUTHENTICATED)
 def forecast_run(
     as_of: datetime = Query(..., description="Decision time (UTC); returns the latest run published by then"),
 ) -> ForecastRun:

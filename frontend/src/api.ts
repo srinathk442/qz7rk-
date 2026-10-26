@@ -48,3 +48,40 @@ export const HORIZON_CURVE_URL = '/api/horizon-curve'
 export function forecastRunUrl(asOf: string): string {
   return `/api/forecast-run?${new URLSearchParams({ as_of: asOf })}`
 }
+
+// Auth: types mirror backend/app/auth.py.
+
+export interface AuthUser {
+  id: number
+  email: string
+}
+
+export interface TokenResponse {
+  access_token: string
+  token_type: string
+  expires_in: number
+  user: AuthUser
+}
+
+/** A readable message from a FastAPI error response. Validation errors (422) carry a list. */
+export async function errorMessage(res: Response): Promise<string> {
+  const detail = (await res.json().catch(() => null))?.detail
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail) && detail.length > 0) {
+    return detail.map((d: { loc: string[]; msg: string }) => `${d.loc[d.loc.length - 1]}: ${d.msg}`).join('; ')
+  }
+  return `Request failed (${res.status})`
+}
+
+async function postCredentials(url: string, email: string, password: string): Promise<TokenResponse> {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  })
+  if (!res.ok) throw new Error(await errorMessage(res))
+  return res.json()
+}
+
+export const logIn = (email: string, password: string) => postCredentials('/api/auth/login', email, password)
+export const register = (email: string, password: string) => postCredentials('/api/auth/register', email, password)

@@ -4,6 +4,11 @@ services:
     environment:
       # "snapshot" (default) reads backend/data; "live" fetches from Elexon.
       DATA_SOURCE: ${DATA_SOURCE:-snapshot}
+      # Set in .env (see .env.example). Unset, logins end when the container restarts.
+      JWT_SECRET: ${JWT_SECRET:-}
+      JWT_TTL_HOURS: ${JWT_TTL_HOURS:-12}
+    volumes:
+      - users:/srv/db
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
       interval: 10s
@@ -17,3 +22,6 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+
+volumes:
+  users:

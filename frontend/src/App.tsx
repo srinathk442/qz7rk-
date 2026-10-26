@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { analysisUrl, HORIZON_CURVE_URL, type Analysis, type HorizonMetrics } from './api'
+import { useAuth, type Session } from './auth'
+import { AuthPage } from './components/AuthPage'
 import { Controls, MONTH_END, MONTH_START } from './components/Controls'
 import { DecisionView } from './components/DecisionView'
 import { ErrorHistogram } from './components/ErrorHistogram'
@@ -11,6 +13,11 @@ import { useDebounced, useFetch } from './hooks'
 const DAY_MS = 24 * 3600 * 1000
 
 export default function App() {
+  const { session, endSession } = useAuth()
+  return session ? <Dashboard session={session} onLogOut={endSession} /> : <AuthPage />
+}
+
+function Dashboard({ session, onLogOut }: { session: Session; onLogOut: () => void }) {
   const [horizon, setHorizon] = useState(24)
   const [range, setRange] = useState({ start: MONTH_START, end: MONTH_END })
 
@@ -23,7 +30,17 @@ export default function App() {
   return (
     <div className="page">
       <header className="header">
-        <h1>Wind Forecast Monitor</h1>
+        <div className="header-top">
+          <h1>Wind Forecast Monitor</h1>
+          <div className="account">
+            <span className="account-email" title={session.user.email}>
+              {session.user.email}
+            </span>
+            <button type="button" onClick={onLogOut}>
+              Log out
+            </button>
+          </div>
+        </div>
         <p className="subtitle">
           GB national wind generation: forecast vs actual, January 2026. Source: Elexon BMRS (WINDFOR, FUELHH). Times in
           UK time (GMT).
