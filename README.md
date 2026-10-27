@@ -83,6 +83,10 @@ cd backend && python -m pytest        # unit + API tests
 cd frontend && npm run lint && npm run build
 ```
 
+### Debugging (VS Code)
+
+Run and Debug (`Ctrl+Shift+D`) has **Backend (debug)**, which starts the API under the debugger with `backend/.env`, and **Auth tests (debug)**. Set breakpoints in `backend/app/`, then use the app via `npm run dev` or http://localhost:8000/docs. Don't run `auth.py` or other modules directly: they import the `app` package and must start from `backend/`.
+
 ### Data source
 
 By default the backend reads a committed snapshot of January 2026 (`backend/data/elexon_jan2026.json`): it is historical data, so this is fast and works offline. Set `DATA_SOURCE=live` to fetch from Elexon instead. Refresh the snapshot with `python -m app.elexon` from `backend/`.
