@@ -7,7 +7,9 @@ otherwise stays valid until it expires (JWT_TTL_HOURS).
 import hashlib
 import hmac
 import logging
+import math
 import os
+import re
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -16,17 +18,28 @@ from typing import Annotated
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel, Field, StringConstraints
-from sqlalchemy import select
+from pydantic import BaseModel, StringConstraints, field_validator
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.db import User, get_db
+from app.db import LoginFailure, User, get_db
 
 ALGORITHM = "HS256"
 TOKEN_TTL = timedelta(hours=float(os.environ.get("JWT_TTL_HOURS", 12)))
+# Tokens are issued and checked by different serverless instances, whose clocks can differ slightly.
+CLOCK_LEEWAY = timedelta(seconds=30)
 # Anyone holding one token can guess HS256 secrets offline, so short ones are refused.
 MIN_SECRET_LENGTH = 32
+
+# After this many failed logins for an email within the window, further attempts are refused
+# until the oldest of them ages out. Kept in the database: serverless instances share no memory.
+MAX_FAILED_LOGINS = 5
+LOCKOUT_WINDOW = timedelta(minutes=15)
+
+PASSWORD_MIN_LENGTH = 8
+PASSWORD_MAX_LENGTH = 128
+_EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def _jwt_secret() -> str:
@@ -73,19 +86,34 @@ def create_token(user: User) -> str:
     return jwt.encode({"sub": str(user.id), "iat": now, "exp": now + TOKEN_TTL}, JWT_SECRET, algorithm=ALGORITHM)
 
 
-Email = Annotated[
-    str, StringConstraints(strip_whitespace=True, to_lower=True, max_length=254, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-]
+Email = Annotated[str, StringConstraints(strip_whitespace=True, to_lower=True, max_length=254)]
 
 
+# Validation errors raised as ValueError reach the user as written, so they are full sentences.
 class RegisterRequest(BaseModel):
     email: Email
-    password: str = Field(min_length=8, max_length=128)
+    password: str
+
+    @field_validator("email")
+    @classmethod
+    def _valid_email(cls, email: str) -> str:
+        if not _EMAIL_PATTERN.match(email):
+            raise ValueError("Enter a valid email address, like name@example.com")
+        return email
+
+    @field_validator("password")
+    @classmethod
+    def _valid_password(cls, password: str) -> str:
+        if not PASSWORD_MIN_LENGTH <= len(password) <= PASSWORD_MAX_LENGTH:
+            raise ValueError(f"Password must be {PASSWORD_MIN_LENGTH} to {PASSWORD_MAX_LENGTH} characters")
+        if not password.strip():
+            raise ValueError("Password cannot be only spaces")
+        return password
 
 
 class LoginRequest(BaseModel):
     # No password rules here: a wrong password should get a 401, not a validation error.
-    email: Annotated[str, StringConstraints(strip_whitespace=True, to_lower=True)]
+    email: Email
     password: str
 
 
@@ -127,15 +155,22 @@ def current_user(
     if credentials is None:
         raise unauthorized("Not authenticated")
     try:
-        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[ALGORITHM])
+        payload = jwt.decode(
+            credentials.credentials,
+            JWT_SECRET,
+            algorithms=[ALGORITHM],
+            leeway=CLOCK_LEEWAY,
+            options={"require": ["exp", "sub"]},
+        )
+        user_id = int(payload["sub"])
     except jwt.ExpiredSignatureError as exc:
-        raise unauthorized("Session expired, please log in again") from exc
-    except jwt.InvalidTokenError as exc:
-        raise unauthorized("Invalid token") from exc
+        raise unauthorized("Your session expired, please log in again") from exc
+    except (jwt.InvalidTokenError, ValueError) as exc:
+        raise unauthorized("Your session is no longer valid, please log in again") from exc
 
-    user = db.get(User, int(payload["sub"]))
+    user = db.get(User, user_id)
     if user is None:
-        raise unauthorized("User no longer exists")
+        raise unauthorized("This account no longer exists")
     return user
 
 
@@ -155,11 +190,48 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)) -> UserInfo:
     return UserInfo(id=user.id, email=user.email)
 
 
+def _as_utc(dt: datetime) -> datetime:
+    # SQLite returns naive datetimes; everything is stored in UTC.
+    return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
+
+
+def _refuse_if_locked_out(db: Session, email: str, now: datetime) -> None:
+    """429 if `email` has had MAX_FAILED_LOGINS failures within the lockout window.
+
+    Unknown emails are counted too, so a lockout does not reveal whether an account exists.
+    """
+    recent = db.scalars(
+        select(LoginFailure.created_at)
+        .where(LoginFailure.email == email, LoginFailure.created_at > now - LOCKOUT_WINDOW)
+        .order_by(LoginFailure.created_at.desc())
+        .limit(MAX_FAILED_LOGINS)
+    ).all()
+    if len(recent) < MAX_FAILED_LOGINS:
+        return
+    wait = math.ceil((_as_utc(recent[-1]) + LOCKOUT_WINDOW - now).total_seconds())
+    minutes = max(1, math.ceil(wait / 60))
+    raise HTTPException(
+        status.HTTP_429_TOO_MANY_REQUESTS,
+        detail=f"Too many failed attempts. Try again in {minutes} minute{'' if minutes == 1 else 's'}.",
+        headers={"Retry-After": str(max(1, wait))},
+    )
+
+
 @router.post("/login", response_model=Token)
 def login(body: LoginRequest, db: Session = Depends(get_db)) -> Token:
+    now = datetime.now(timezone.utc)
+    _refuse_if_locked_out(db, body.email, now)
+
     user = db.scalars(select(User).where(User.email == body.email)).first()
     if not verify_password(body.password, user.password_hash if user else _DUMMY_HASH) or user is None:
+        db.add(LoginFailure(email=body.email, created_at=now))
+        # Housekeeping: failures older than the window no longer count for anyone.
+        db.execute(delete(LoginFailure).where(LoginFailure.created_at <= now - LOCKOUT_WINDOW))
+        db.commit()
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password")
+
+    db.execute(delete(LoginFailure).where(LoginFailure.email == body.email))
+    db.commit()
     return _token_response(user)
 
 

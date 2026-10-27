@@ -14,7 +14,7 @@ const DAY_MS = 24 * 3600 * 1000
 
 export default function App() {
   const { session, endSession } = useAuth()
-  return session ? <Dashboard session={session} onLogOut={endSession} /> : <AuthPage />
+  return session ? <Dashboard session={session} onLogOut={() => endSession()} /> : <AuthPage />
 }
 
 function Dashboard({ session, onLogOut }: { session: Session; onLogOut: () => void }) {

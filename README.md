@@ -31,6 +31,8 @@ Data comes from the Elexon BMRS API: actual generation from [FUELHH](https://bmr
 
 - `POST /api/auth/register` creates the account; the user then logs in. `POST /api/auth/login` returns a signed JWT (HS256), which the frontend keeps in `localStorage` and sends as `Authorization: Bearer …`. The data endpoints return 401 without a valid token, and the frontend then returns to the login page.
 - Passwords are hashed with scrypt (Python standard library) and a per-user salt.
+- After 5 failed logins for an email within 15 minutes, that email is locked out (429) until the oldest failure is 15 minutes old. Failures are stored in the database, since serverless instances share no memory, and unknown emails are counted too, so a lockout does not reveal whether an account exists.
+- When a token expires the frontend returns to the login page and says the session expired.
 - Tokens are stateless: logging out deletes the token in the browser, and a copied token stays valid until it expires (`JWT_TTL_HOURS`, default 12).
 
 Configuration, all optional locally (see [.env.example](.env.example)):

@@ -25,8 +25,11 @@ export function useFetch<T>(url: string): FetchState<T> {
 
     fetch(url, { signal: controller.signal, headers: token ? { Authorization: `Bearer ${token}` } : undefined })
       .then(async (res) => {
-        if (res.status === 401) endSession()
-        if (!res.ok) throw new Error(await errorMessage(res))
+        if (!res.ok) {
+          const message = await errorMessage(res)
+          if (res.status === 401) endSession(message)
+          throw new Error(message)
+        }
         return res.json() as Promise<T>
       })
       .then((data) => setState({ data, error: null, loading: false }))

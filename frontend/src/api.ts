@@ -63,12 +63,19 @@ export interface TokenResponse {
   user: AuthUser
 }
 
-/** A readable message from a FastAPI error response. Validation errors (422) carry a list. */
+/**
+ * A readable message from a FastAPI error response. Validation errors (422) carry a list;
+ * messages the backend wrote itself arrive prefixed "Value error, " and are shown as written.
+ */
 export async function errorMessage(res: Response): Promise<string> {
   const detail = (await res.json().catch(() => null))?.detail
   if (typeof detail === 'string') return detail
   if (Array.isArray(detail) && detail.length > 0) {
-    return detail.map((d: { loc: string[]; msg: string }) => `${d.loc[d.loc.length - 1]}: ${d.msg}`).join('; ')
+    return detail
+      .map(({ loc, msg }: { loc: string[]; msg: string }) =>
+        msg.startsWith('Value error, ') ? msg.slice('Value error, '.length) : `${loc[loc.length - 1]}: ${msg}`,
+      )
+      .join('; ')
   }
   return `Request failed (${res.status})`
 }

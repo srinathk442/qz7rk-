@@ -177,6 +177,11 @@ button {
   font-size: 0.875rem;
 }
 
+.notice-info {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
 .field {
   display: flex;
   flex-direction: column;

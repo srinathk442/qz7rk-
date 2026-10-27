@@ -6,13 +6,15 @@ type Mode = 'login' | 'register'
 
 /** Login and registration forms, shown until the user has a session. */
 export function AuthPage() {
-  const { startSession } = useAuth()
+  const { startSession, endReason } = useAuth()
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  // Why the user was logged out (e.g. their session expired), until they do anything else.
+  const [ended, setEnded] = useState(endReason)
   const [submitting, setSubmitting] = useState(false)
   const isRegister = mode === 'register'
 
@@ -25,6 +27,7 @@ export function AuthPage() {
     setSubmitting(true)
     setError(null)
     setNotice(null)
+    setEnded(null)
     try {
       if (isRegister) {
         // Registering does not log in: go to the login form with the email filled in.
@@ -34,7 +37,7 @@ export function AuthPage() {
         setSubmitting(false)
       } else {
         const res = await logIn(email, password)
-        startSession({ token: res.access_token, user: res.user })
+        startSession({ token: res.access_token, user: res.user, expiresAt: Date.now() + res.expires_in * 1000 })
       }
     } catch (err) {
       setError((err as Error).message)
@@ -46,6 +49,7 @@ export function AuthPage() {
     setMode(next)
     setError(null)
     setNotice(null)
+    setEnded(null)
     setPassword('')
     setConfirm('')
   }
@@ -60,6 +64,11 @@ export function AuthPage() {
         {notice && (
           <p className="notice" role="status">
             {notice}
+          </p>
+        )}
+        {ended && (
+          <p className="notice notice-info" role="status">
+            {ended}
           </p>
         )}
         <form className="auth-form" onSubmit={handleSubmit}>

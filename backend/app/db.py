@@ -53,6 +53,16 @@ class User(Base):
     )
 
 
+class LoginFailure(Base):
+    """A failed login, kept for the lockout window (see app.auth)."""
+
+    __tablename__ = "login_failures"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(254), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
 @cache
 def _create_tables() -> None:
     # Done on first use rather than at startup: the Vercel entry point does not run lifespan hooks.
